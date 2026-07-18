@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MelihMavi.pro - Art | Design | Engineering</title>
+    <style>
+        /* CSS: Genel Ayarlar ve Tema */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0d0d0d; /* Koyu arka plan */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            /* Yüklenirken animasyon titreşimini azaltmak için */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        #topographicCanvas {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -1;
+        }
+
+        /* CSS: Landing Page İçeriği ve Menü */
+        .content {
+            position: relative;
+            z-index: 1;
+            color: #ffffff;
+            text-align: center;
+            /* Dikey ortalama (Yaklaşık) */
+            padding-top: 25vh; 
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            
+            /* Tam ekran ortalama için esnek yapıyı kullanalım */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .main-title {
+            font-size: 4.5em; /* Ana Başlık */
+            margin: 0;
+            font-weight: 800;
+            letter-spacing: 2px;
+        }
+        
+        .menu-container {
+            margin-top: 30px;
+        }
+        
+        .menu-item {
+            font-size: 1.2em;
+            font-weight: 300;
+            color: #ccc;
+            text-decoration: none;
+            margin: 0 20px;
+            /* Animasyonlar için hazır bir geçiş (transition) */
+            transition: color 0.3s ease;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        
+        .menu-item:hover {
+            color: #4CAF50; /* Hover rengi (Kreatif renk) */
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="topographicCanvas"></canvas>
+
+    <div class="content">
+        <h1 class="main-title">MelihMavi.pro</h1>
+        <h2 class="sub-title">new chapter is loading...</h1>
+        <div class="menu-container">
+            <a href="#" class="menu-item">Art</a>
+            <span class="menu-item">|</span>
+            <a href="#" class="menu-item">DESIGN</a>
+            <span class="menu-item">|</span>
+            <a href="#" class="menu-item">Map</a>
+        </div>
+    </div>
+
+    <script>
+        // *** PERLIN GÜRÜLTÜSÜ ALGORİTMASI (Aynı Kaldı) ***
+        const Perlin = {
+            p: new Array(512),
+            init: function() {
+                const permutation = new Array(256);
+                for (let i = 0; i < 256; i++) permutation[i] = i;
+                for (let i = 0; i < 256; i++) {
+                    const swapIndex = Math.floor(Math.random() * 256);
+                    [permutation[i], permutation[swapIndex]] = [permutation[swapIndex], permutation[i]];
+                }
+                for (let i = 0; i < 256; i++) {
+                    this.p[i] = this.p[i + 256] = permutation[i];
+                }
+            },
+            fade: t => t * t * t * (t * (t * 6 - 15) + 10),
+            grad: (hash, x, y) => {
+                const h = hash & 15;
+                const u = h < 8 ? x : y;
+                const v = h < 4 ? y : h === 12 || h === 14 ? x : 0;
+                return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+            },
+            noise: function(x, y, z) {
+                const X = Math.floor(x) & 255, Y = Math.floor(y) & 255, Z = Math.floor(z) & 255;
+                x -= Math.floor(x); y -= Math.floor(y); z -= Math.floor(z);
+                const u = this.fade(x), v = this.fade(y), w = this.fade(z);
+                const A = this.p[X] + Y, AA = this.p[A] + Z, AB = this.p[A + 1] + Z;
+                const B = this.p[X + 1] + Y, BA = this.p[B] + Z, BB = this.p[B + 1] + Z;
+                return this.lerp(w, this.lerp(v, this.lerp(u, this.grad(this.p[AA], x, y),
+                                                    this.grad(this.p[BA], x - 1, y)),
+                                      this.lerp(u, this.grad(this.p[AB], x, y - 1),
+                                                    this.grad(this.p[BB], x - 1, y - 1))),
+                             this.lerp(v, this.lerp(u, this.grad(this.p[AA + 1], x, y - 1),
+                                                    this.grad(this.p[BA + 1], x - 1, y - 1)),
+                                      this.lerp(u, this.grad(this.p[AB + 1], x, y - 2),
+                                                    this.grad(this.p[BB + 1], x - 1, y - 2))));
+            },
+            lerp: (t, a, b) => a + t * (b - a)
+        };
+        Perlin.init(); 
+        // *** PERLIN GÜRÜLTÜSÜ ALGORİTMASI SONU ***
+
+
+        const canvas = document.getElementById('topographicCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width, height;
+        let time = 0; 
+        let direction = 1; 
+        let lastTime = 0; 
+
+        // SABİT AYARLAR (İstediğiniz değerlere güncellendi)
+        const settings = {
+            scale: 140, // 140
+            speed: 0.020 * 10, // 0.020 (Çok hızlı)
+            octaves: 2, // 2 (Daha yumuşak)
+            persistence: 0.5, 
+            lacunarity: 2.0,
+            lineInterval: 0.33, // 0.33 (Daha seyrek)
+            maxTime: 1 
+        };
+        
+        // Canvas Boyutunu Ayarla
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Gürültü değeri alımı
+        function getNoiseValue(x, y, z) {
+            let total = 0;
+            let frequency = 1;
+            let amplitude = 1;
+            let maxValue = 0;
+
+            for(let i = 0; i < settings.octaves; i++) {
+                total += Perlin.noise(x * frequency / settings.scale, 
+                                      y * frequency / settings.scale, 
+                                      z) * amplitude;
+                
+                maxValue += amplitude;
+                
+                amplitude *= settings.persistence;
+                frequency *= settings.lacunarity;
+            }
+            
+            return total / maxValue;
+        }
+
+        // Ana Çizim ve Animasyon Döngüsü
+        function draw(timestamp) {
+            
+            if (!lastTime) { lastTime = timestamp; }
+            const deltaTime = (timestamp - lastTime) / 1000; 
+            lastTime = timestamp;
+
+            // Ping-Pong Kontrolü
+            time += settings.speed * deltaTime * direction; 
+            
+            if (direction === 1 && time >= settings.maxTime) {
+                direction = -1;
+                time = settings.maxTime; 
+            } else if (direction === -1 && time <= 0) {
+                direction = 1;
+                time = 0; 
+            }
+            
+            ctx.clearRect(0, 0, width, height); 
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; 
+            ctx.lineWidth = 1.5; 
+            
+            const step = 4; 
+            
+            for (let x = 0; x < width; x += step) {
+                for (let y = 0; y < height; y += step) {
+                    
+                    const n1 = getNoiseValue(x, y, time);
+                    const n2 = getNoiseValue(x + step, y, time);
+                    const n3 = getNoiseValue(x, y + step, time);
+                    
+                    for (let t = -1; t < 1; t += settings.lineInterval) {
+                        
+                        function drawContour(nA, nB, pA, pB) {
+                            if ((nA < t && nB >= t) || (nA >= t && nB < t)) {
+                                const ratio = (t - nA) / (nB - nA); 
+                                
+                                ctx.beginPath();
+                                ctx.moveTo(pA.x, pA.y);
+                                
+                                const x_cut = pA.x + ratio * (pB.x - pA.x);
+                                const y_cut = pA.y + ratio * (pB.y - pA.y);
+                                
+                                ctx.lineTo(x_cut, y_cut); 
+                                ctx.stroke();
+                            }
+                        }
+
+                        const p1 = { x: x, y: y };
+                        const p2 = { x: x + step, y: y };
+                        const p3 = { x: x, y: y + step };
+
+                        drawContour(n1, n2, p1, p2); 
+                        drawContour(n1, n3, p1, p3); 
+                    }
+                }
+            }
+            
+            requestAnimationFrame(draw); 
+        }
+
+        requestAnimationFrame(draw); 
+    </script>
+
+</body>
+</html>
